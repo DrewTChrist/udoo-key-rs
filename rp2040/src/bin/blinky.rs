@@ -1,16 +1,14 @@
 #![no_std]
 #![no_main]
 
-use rp2040_hal::entry;
-use defmt::*;
 use defmt_rtt as _;
 use embedded_hal::digital::v2::OutputPin;
 use panic_probe as _;
+use rp2040_hal::entry;
 
 use rp2040_hal::{
     clocks::{init_clocks_and_plls, Clock},
-    gpio,
-    pac,
+    gpio, pac,
     sio::Sio,
     watchdog::Watchdog,
 };

@@ -1,13 +1,8 @@
 #![no_std]
 #![no_main]
 
-use hal::{
-    clock::ClockControl,
-    gpio::IO,
-    peripherals::Peripherals,
-    prelude::*,
-    timer::TimerGroup,
-    Delay,
+use esp32_hal::{
+    clock::ClockControl, gpio::IO, peripherals::Peripherals, prelude::*, timer::TimerGroup, Delay,
     Rtc,
 };
 use esp_backtrace as _;

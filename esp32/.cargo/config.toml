@@ -1,5 +1,5 @@
 [target.xtensa-esp32-none-elf]
-runner = "espflash flash --monitor"
+runner = "espflash --monitor"
 
 [build]
 rustflags = [

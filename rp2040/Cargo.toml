@@ -12,8 +12,11 @@ defmt = "0.3"
 defmt-rtt = "0.4"
 panic-probe = { version = "0.3", features = ["print-defmt"] }
 
-rp2040-hal = { version="0.8", features=["rt", "critical-section-impl"] }
+rp2040-hal = { version="0.8", features=["rt", "critical-section-impl", "eh1_0_alpha"] }
 rp2040-boot2 = "0.2"
+fugit = "0.3.6"
+panic-halt = "0.2.0"
+critical-section = "1.1.1"
 
 # cargo build/run
 [profile.dev]
