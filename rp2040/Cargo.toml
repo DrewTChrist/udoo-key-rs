@@ -1,12 +1,14 @@
 [package]
-edition = "2021"
-name = "rp2040"
+name = "udoo-rp2040"
 version = "0.1.0"
+authors = ["Andrew Christiansen <andrewtaylorchristiansen@gmail.com>"]
+edition = "2021"
 
 [dependencies]
 cortex-m = "0.7"
 cortex-m-rt = "0.7"
 embedded-hal = { version = "0.2.5", features = ["unproven"] }
+chip8 = { git = "https://github.com/drewtchrist/chip8" }
 
 defmt = "0.3"
 defmt-rtt = "0.4"
@@ -17,6 +19,7 @@ rp2040-boot2 = "0.2"
 fugit = "0.3.6"
 panic-halt = "0.2.0"
 critical-section = "1.1.1"
+embedded-time = "0.12.1"
 
 # cargo build/run
 [profile.dev]
