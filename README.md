@@ -1,13 +1,15 @@
 # udoo-key-rs
 
+## Description
+
 The Udoo Key is a development board with an ESP32 and an RP2040.
 
-Read more about it:
+This repository has some Rust code for the Udoo Key that should run as is. Feel 
+free to take a look.
+
+Read more about the Udoo Key:
 * [Kickstarter](https://www.kickstarter.com/projects/udoo/udoo-key-the-4-ai-platform)
 * [Udoo Key Docs](http://www.udoo.org/docs-key/Introduction/Introduction.html)
-
-
-This repository has some Rust code for the Udoo Key. Feel free to take a look.
 
 Here are some relevant links:
 * [esp-rs Github Organization](https://github.com/esp-rs)
