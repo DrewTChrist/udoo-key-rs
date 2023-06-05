@@ -2,6 +2,7 @@
 
 ## Chip to Chip Connections
 
+#### Serial Connection
 |Chip|Pin|Function|
 |---|---|---|
 |ESP32 |Gpio19|Uart Tx to rp2040|
@@ -9,6 +10,7 @@
 |RP2040|Gpio1 |Uart Tx to esp32|
 |RP2040|Gpio0 |Uart Rx from esp32|
 
+#### SWD Connection
 |ESP32|RP2040|Function|
 |---|---|---|
 |Gpio2|SWDIO|rp2040 SWD|
@@ -20,7 +22,7 @@
 |Gpio23|Reset pin|Reset rp2040 from esp32|
 
 
-## LED Pins
+## On-board LED Pins
 
 |Led|Chip|Pin|
 |---|---|---|

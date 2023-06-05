@@ -5,7 +5,9 @@
 The Udoo Key is a development board with an ESP32 and an RP2040.
 
 This repository has some Rust code for the Udoo Key that should run as is. Feel 
-free to take a look.
+free to take a look. There is also an Udoo Key Pro that comes with a microphone
+and an IMU. Unless someone with an Udoo Key Pro feels inclined to contribute an
+example, there won't be any in this repository.
 
 Read more about the Udoo Key:
 * [Kickstarter](https://www.kickstarter.com/projects/udoo/udoo-key-the-4-ai-platform)
@@ -17,7 +19,8 @@ Here are some relevant links:
 * [mpu-6500 rust driver](https://github.com/justdimaa/embedded-sensors)
 * [icm-20948 rust driver](https://github.com/Zolkin1/icm20948_driver)
 
-[Short Reference](REFERENCE.md)
+I've extracted pinouts and such from the Udoo Key documentation and put them in
+a [Quick Reference](REFERENCE.md).
 
 ## [esp32](esp32/README.md)
 
