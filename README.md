@@ -17,10 +17,12 @@ Here are some relevant links:
 * [mpu-6500 rust driver](https://github.com/justdimaa/embedded-sensors)
 * [icm-20948 rust driver](https://github.com/Zolkin1/icm20948_driver)
 
+[Short Reference](REFERENCE.md)
+
 ## [esp32](esp32/README.md)
 
-These are the programs that are meant to be run on the ESP32.
+Programs that are meant to be run on the esp32 are in the [esp32](esp32/) directory.
 
 ## [rp2040](rp2040/README.md)
 
-These are the programs that are meant to be run on the ESP32.
+Programs that are meant to be run on the rp2040 are in the [rp2040](rp2040/) directory.
