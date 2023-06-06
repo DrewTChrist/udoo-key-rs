@@ -8,7 +8,7 @@ edition = "2021"
 cortex-m = "0.7"
 cortex-m-rt = "0.7"
 embedded-hal = { version = "0.2.5", features = ["unproven"] }
-chip8 = { git = "https://github.com/drewtchrist/chip8" }
+chip8 = { path = "../../chip8" }
 
 defmt = "0.3"
 defmt-rtt = "0.4"
@@ -20,6 +20,8 @@ fugit = "0.3.6"
 panic-halt = "0.2.0"
 critical-section = "1.1.1"
 embedded-time = "0.12.1"
+embedded-graphics = "0.8.0"
+nb = "1.1.0"
 
 # cargo build/run
 [profile.dev]
