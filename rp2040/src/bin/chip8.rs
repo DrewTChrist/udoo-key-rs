@@ -2,8 +2,8 @@
 #![no_main]
 
 use core::cell::RefCell;
-use critical_section::Mutex;
 use cortex_m_rt::entry;
+use critical_section::Mutex;
 use defmt_rtt as _;
 use embedded_graphics::{pixelcolor::Rgb565, prelude::*};
 use embedded_hal::timer::{Cancel, CountDown};
@@ -39,7 +39,11 @@ impl<'a> Rom<'a> {
     }
 }
 
+/// Mock display because this example
+/// is more about using the bytes sent
+/// from the esp32
 struct Chip8MockDisplay;
+/// Mock Error
 struct DisplayError;
 
 impl embedded_graphics::geometry::OriginDimensions for Chip8MockDisplay {
@@ -59,7 +63,17 @@ impl DrawTarget for Chip8MockDisplay {
     }
 }
 
+type SerialTxPin = Pin<Gpio0, FunctionUart>;
+type SerialRxPin = Pin<Gpio1, FunctionUart>;
+type Uart = UartPeripheral<Enabled, UART0, (SerialTxPin, SerialRxPin)>;
+type GlobalSerial = Mutex<RefCell<Option<Uart>>>;
+
+// Global serial connection to the esp32
+static ESP_SERIAL: GlobalSerial = Mutex::new(RefCell::new(None));
 static ROM_BUFFER: Mutex<RefCell<Option<[u8; 1024]>>> = Mutex::new(RefCell::new(None));
+static ROM_SIZE: Mutex<RefCell<Option<usize>>> = Mutex::new(RefCell::new(None));
+// Some(()) for new rom available, None for no new rom available
+static ROM_LOAD_STATE: Mutex<RefCell<Option<()>>> = Mutex::new(RefCell::new(None));
 
 #[entry]
 fn main() -> ! {
@@ -133,13 +147,54 @@ fn main() -> ! {
     chip8.load_program(rom.bytes());
     chip8.load_font(fonts::DEFAULT);
 
+    // Store items in global variables
+    critical_section::with(|cs| {
+        ROM_BUFFER.borrow(cs).replace(Some([u8; 1024]));
+        ROM_SIZE.borrow(cs).replace(None);
+        ROM_LOAD_STATE.borrow(cs).replace(None);
+        ESP_SERIAL.borrow(cs).replace(Some(uart));
+    });
+
+    // unmask interrupt
+    unsafe {
+        hal::pac::NVIC::unmask(hal::pac::Interrupt::UART0_IRQ);
+    }
+
     loop {
         chip8.tick();
         countdown.start(5_u32.millis());
         let _ = nb::block!(countdown.wait());
         countdown.cancel().unwrap();
+        critical_section::with(|cs| {
+            let rom_load_state = ROM_LOAD_STATE.borrow(cs);
+            let rom_size = ROM_SIZE.borrow(cs);
+            if rom_load_state.is_some() {
+                let rom_buffer = ROM_BUFFER.borrow(cs);
+            }
+        });
     }
 }
 
 #[interrupt]
-fn UART0_IRQ() {}
+fn UART0_IRQ() {
+    critical_section::with(|cs| {
+        let mut rom_buffer = ROM_BUFFER.borrow_ref_mut(cs);
+        let rom_buffer = rom_buffer.as_mut().unwrap();
+        let mut rom_size = ROM_SIZE.borrow_ref_mut(cs);
+        let rom_size = rom_size.as_mut().unwrap();
+        let mut rom_load_state = ROM_LOAD_STATE.borrow_ref_mut(cs);
+        let rom_load_state = rom_load_state.as_mut().unwrap();
+        let mut esp_serial = ESP_SERIAL.borrow_ref_mut(cs);
+        let esp_serial = esp_serial.as_mut().unwrap();
+        if esp_serial.uart_is_readable() {
+            let mut buff = [0_u8; 2];
+            if esp_serial.read_full_blocking(&mut buff).is_ok() {
+                let read = (buff[0] << 8 | buff[1]) as usize;
+                if read > 0 {
+                    *rom_size = Some(read);
+                    _ = esp_serial.flush();
+                }
+            }
+        }
+    });
+}
