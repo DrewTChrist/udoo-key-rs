@@ -1,19 +1,28 @@
 #![no_std]
 #![no_main]
 
+use embedded_hal::serial::{Read as SerialRead, Write as SerialWrite};
 use embedded_io::blocking::*;
 use embedded_svc::ipv4::Interface;
 use embedded_svc::wifi::{ClientConfiguration, Configuration, Wifi};
 
 use esp32_hal::clock::{ClockControl, CpuClock};
 use esp32_hal::Rng;
-use esp32_hal::{peripherals::Peripherals, prelude::*, Rtc};
+use esp32_hal::{
+    peripherals::Peripherals,
+    prelude::*,
+    uart::{
+        config::{Config, DataBits, Parity, StopBits},
+        TxRxPins,
+    },
+    Rtc, Uart, IO,
+};
 use esp_backtrace as _;
 use esp_println::logger::init_logger;
 use esp_println::println;
 use esp_wifi::wifi::utils::create_network_interface;
 use esp_wifi::wifi::WifiMode;
-use esp_wifi::wifi_interface::WifiStack;
+use esp_wifi::wifi_interface::{Socket, WifiStack};
 use esp_wifi::{current_millis, initialize, EspWifiInitFor};
 use smoltcp::iface::SocketStorage;
 use smoltcp::wire::IpAddress;
@@ -21,6 +30,44 @@ use smoltcp::wire::Ipv4Address;
 
 const SSID: &str = env!("SSID");
 const PASSWORD: &str = env!("PASSWORD");
+const RP_SERIAL_CONFIG: Config = Config {
+    baudrate: 9600,
+    data_bits: DataBits::DataBits8,
+    parity: Parity::ParityNone,
+    stop_bits: StopBits::STOP1,
+};
+
+struct RomGetter<'a, UART>
+where
+    UART: SerialRead<u8> + SerialWrite<u8>,
+{
+    rom_buffer: [u8; 4096],
+    pub socket: Socket<'a, 'a>,
+    uart: UART,
+}
+
+impl<'a, UART> RomGetter<'a, UART>
+where
+    UART: SerialRead<u8> + SerialWrite<u8>,
+{
+    fn new(uart: UART, socket: Socket<'a, 'a>) -> Self {
+        Self {
+            rom_buffer: [0; 4096],
+            socket,
+            uart,
+        }
+    }
+
+    /// Get list of roms from the
+    /// socket server
+    fn get_rom_list(&self) {}
+
+    /// Get a rom from the socket server
+    fn get_rom(&self) {}
+
+    /// Send a rom to the rp2040
+    fn send_rom(&self) {}
+}
 
 #[entry]
 fn main() -> ! {
@@ -48,6 +95,32 @@ fn main() -> ! {
         &clocks,
     )
     .unwrap();
+
+    let io = IO::new(peripherals.GPIO, peripherals.IO_MUX);
+
+    let pins = TxRxPins::new_tx_rx(
+        io.pins.gpio19.into_push_pull_output(),
+        io.pins.gpio22.into_floating_input(),
+    );
+
+    let rp_serial = Uart::new_with_config(
+        peripherals.UART1,
+        Some(RP_SERIAL_CONFIG),
+        Some(pins),
+        &clocks,
+        &mut peripheral_clock_control,
+    );
+
+    let local_address = core::env!("ADDRESS");
+    let mut parts = local_address.split(':');
+    let ip = parts.next().unwrap();
+    let port = parts.next().unwrap().parse::<u16>().unwrap();
+    let mut local_ip: [u8; 4] = [0; 4];
+    let mut index = 0;
+    for part in ip.split('.') {
+        local_ip[index] = part.parse::<u8>().unwrap();
+        index += 1;
+    }
 
     let (wifi, _) = peripherals.RADIO.split();
     let mut socket_set_entries: [SocketStorage; 3] = Default::default();
@@ -105,43 +178,53 @@ fn main() -> ! {
 
     socket.work();
     socket
-        .open(IpAddress::Ipv4(Ipv4Address::new(10, 0, 0, 139)), 5000)
+        .open(
+            IpAddress::Ipv4(Ipv4Address::new(
+                local_ip[0],
+                local_ip[1],
+                local_ip[2],
+                local_ip[3],
+            )),
+            port,
+        )
         .unwrap();
 
-    let mut length_read = false;
-    let mut buffer = [0u8; 512];
-    let mut length: usize = 0;
-    loop {
-        socket.work();
-        if !length_read {
-            match socket.read(&mut buffer[0..1]) {
-                Ok(len) => {
-                    if len > 0 && buffer[0] > 0 {
-                        length_read = true;
-                        length = buffer[0] as usize;
-                        println!("Reading length: {:?}\n\r", length);
-                    }
-                }
-                Err(e) => println!("Error reading data from socket: {:?}\n\r", e),
-            }
-        } else {
-            match socket.read(&mut buffer[0..length]) {
-                Ok(len) if len > 0 => {
-                    println!("Read {} bytes\n\r", len);
-                    println!("Buffer: {:?}\n\r", &buffer[0..length]);
-                    break;
-                }
-                Err(e) => println!("Error reading data from socket: {:?}\n\r", e),
-                _ => {}
-            }
-        }
-    }
+    let mut rom_getter = RomGetter::new(rp_serial, socket);
 
-    socket.disconnect();
+    //let mut length_read = false;
+    //let mut buffer = [0u8; 512];
+    //let mut length: usize = 0;
+    //loop {
+    //    socket.work();
+    //    if !length_read {
+    //        match socket.read(&mut buffer[0..1]) {
+    //            Ok(len) => {
+    //                if len > 0 && buffer[0] > 0 {
+    //                    length_read = true;
+    //                    length = buffer[0] as usize;
+    //                    println!("Reading length: {:?}\n\r", length);
+    //                }
+    //            }
+    //            Err(e) => println!("Error reading data from socket: {:?}\n\r", e),
+    //        }
+    //    } else {
+    //        match socket.read(&mut buffer[0..length]) {
+    //            Ok(len) if len > 0 => {
+    //                println!("Read {} bytes\n\r", len);
+    //                println!("Buffer: {:?}\n\r", &buffer[0..length]);
+    //                break;
+    //            }
+    //            Err(e) => println!("Error reading data from socket: {:?}\n\r", e),
+    //            _ => {}
+    //        }
+    //    }
+    //}
+
+    rom_getter.socket.disconnect();
 
     let wait_end = current_millis() + 5 * 1000;
     while current_millis() < wait_end {
-        socket.work();
+        rom_getter.socket.work();
     }
     loop {}
 }
