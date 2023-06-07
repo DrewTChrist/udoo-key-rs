@@ -19,8 +19,8 @@ Here are some relevant links:
 * [mpu-6500 rust driver](https://github.com/justdimaa/embedded-sensors)
 * [icm-20948 rust driver](https://github.com/Zolkin1/icm20948_driver)
 
-I've extracted pinouts and such from the Udoo Key documentation and put them in
-a [Quick Reference](REFERENCE.md).
+I've extracted some pinouts and key points from the Udoo Key documentation and 
+put them in a [Quick Reference](REFERENCE.md) to save time.
 
 ## [esp32](esp32/README.md)
 
