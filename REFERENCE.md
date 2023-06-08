@@ -15,11 +15,11 @@
 |---|---|---|
 |Gpio2|SWDIO|rp2040 SWD|
 |Gpio4|SWCLK|rp2040 SWD|
-|n/a  |Gpio5|Use to switch between external swd and esp32 swd|
+|Gpio5| n/a |Set high to use, Set low to use external SWD|
 
 |ESP32|RP2040|Function|
 |---|---|---|
-|Gpio23|Reset pin|Reset rp2040 from esp32|
+|Gpio23|Reset pin|Reset rp2040 by setting low then setting high|
 
 
 ## On-board LED Pins

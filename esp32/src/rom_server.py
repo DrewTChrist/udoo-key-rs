@@ -1,8 +1,8 @@
 """
 This is a socket server that serves chip8 roms
 
-The socket server accepts two commands, RequestRomList (0x1) and
-RequestRom (0x2).
+The socket server accepts two commands, REQUEST_ROM_LIST (0x1) and
+REQUEST_ROM (0x2).
 
 Usage:
     python src/rom_server.py localhost:5000 roms
@@ -11,7 +11,7 @@ Usage:
 import os
 import socket
 import sys
-from typing import Optional
+from typing import Optional, Tuple
 from command import Command, command_from_int
 
 
@@ -22,22 +22,20 @@ class RomServer:
         self.host = host
         self.port = port
         self.rom_directory = directory
-        self.roms = [
-            (idx, rom) for (idx, rom) in enumerate(os.listdir(self.rom_directory))
-        ]
+        self.roms = list(enumerate(os.listdir(self.rom_directory)))
 
-    def receive_command(self, conn) -> (Command, Optional[int]):
+    def receive_command(self, conn) -> Tuple[Optional[Command], Optional[int]]:
         """Receives a command from a client"""
-        command_arg = None
+        command_arg: Tuple[Optional[Command], Optional[int]] = (None, None)
         if not conn is None:
             # two byte for command, two for possible rom id
             data = conn.recv(4)
             command = command_from_int(data[3])
             rom_id = data[0] << 8 | data[1]
             match command:
-                case Command.RequestRomList:
+                case Command.REQUEST_ROM_LIST:
                     command_arg = (command, None)
-                case Command.RequestRom:
+                case Command.REQUEST_ROM:
                     command_arg = (command, rom_id)
         return command_arg
 
@@ -45,7 +43,7 @@ class RomServer:
         """Responds to the command received from the client"""
         if not conn is None:
             match command:
-                case Command.RequestRomList:
+                case Command.REQUEST_ROM_LIST:
                     num_roms = len(self.roms).to_bytes(2, "big")
                     conn.sendall(num_roms)
                     for rom in self.roms:
@@ -58,13 +56,13 @@ class RomServer:
                         # send rom file name
                         conn.sendall(bytes(rom[1], "utf-8"))
                         # print(''.join('{:02x} '.format(x) for x in bytes(rom[1], 'utf-8')))
-                case Command.RequestRom:
+                case Command.REQUEST_ROM:
                     rom_file = self.roms[arg][1]
                     with open(self.rom_directory + "/" + rom_file, "rb") as file:
-                        rom = file.read()
-                        length = len(rom).to_bytes(2, "big")
+                        rom_bytes = file.read()
+                        length = len(rom_bytes).to_bytes(2, "big")
                         conn.sendall(length)
-                        conn.sendall(rom)
+                        conn.sendall(rom_bytes)
 
     def run(self) -> None:
         """start the socket server"""
