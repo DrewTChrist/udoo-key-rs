@@ -22,7 +22,7 @@ use esp_println::logger::init_logger;
 use esp_println::println;
 use esp_wifi::wifi::utils::create_network_interface;
 use esp_wifi::wifi::WifiMode;
-use esp_wifi::wifi_interface::{Socket, WifiStack};
+use esp_wifi::wifi_interface::{IoError, Socket, WifiStack};
 use esp_wifi::{current_millis, initialize, EspWifiInitFor};
 use smoltcp::iface::SocketStorage;
 use smoltcp::wire::IpAddress;
@@ -36,6 +36,28 @@ const RP_SERIAL_CONFIG: Config = Config {
     parity: Parity::ParityNone,
     stop_bits: StopBits::STOP1,
 };
+
+#[repr(u8)]
+enum Command {
+    RequestRomList = 0x1,
+    RequestRom = 0x2,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct RomInfo<'a> {
+    pub rom_id: u16,
+    pub name: &'a str,
+}
+
+impl<'a> RomInfo<'a> {
+    fn new() -> Self {
+        Self {
+            rom_id: 0,
+            name: "", //name_size: 0,
+                      //name: [0; S],
+        }
+    }
+}
 
 struct RomGetter<'a, UART>
 where
@@ -58,9 +80,53 @@ where
         }
     }
 
+    fn read(&mut self, buffer: &mut [u8]) -> Result<usize, IoError> {
+        self.socket.work();
+        self.socket.read(buffer)
+    }
+
+    fn write(&mut self, buffer: &[u8]) -> Result<usize, IoError> {
+        self.socket.work();
+        self.socket.write(buffer)
+    }
+
     /// Get list of roms from the
     /// socket server
-    fn get_rom_list(&self) {}
+    fn get_rom_list<const ROMS: usize, const NM_SZ: usize>(&mut self) -> [Option<RomInfo>; ROMS] {
+        let mut roms: [Option<RomInfo>; ROMS] = [None; ROMS];
+        let mut name_buf = [0_u8; NM_SZ];
+        let mut num_roms = [0_u8; 2];
+        _ = self.write(&[0x0, 0x0, 0x0, Command::RequestRomList as u8]);
+        while let Ok(len) = self.read(&mut num_roms) {
+            println!("First socket read is Ok({len})\n\r");
+            if len > 0 {
+                let num_roms = ((num_roms[0] as u16) << 8 | num_roms[1] as u16) as usize;
+                for i in 0..num_roms {
+                    if i < ROMS {
+                        let mut rom_info: RomInfo = RomInfo::new();
+                        let mut rom_id = [0_u8; 2];
+                        _ = self.read(&mut rom_id);
+                        rom_info.rom_id = (rom_id[0] as u16) << 8 | rom_id[1] as u16;
+                        let mut rom_name_size = [0_u8; 2];
+                        _ = self.read(&mut rom_name_size);
+                        let rom_name_size =
+                            ((rom_name_size[0] as u16) << 8 | rom_name_size[1] as u16) as usize;
+                        //rom_info.name_size = rom_name_size;
+                        _ = self.read(&mut name_buf[0..rom_name_size]);
+                        let name_buf = name_buf;
+                        let mut name = "";
+                        {
+                            name = core::str::from_utf8(&name_buf[0..rom_name_size])
+                            .unwrap();
+                        }
+                        rom_info.name = name.clone();
+                        roms[i] = Some(rom_info);
+                    }
+                }
+            }
+        }
+        roms
+    }
 
     /// Get a rom from the socket server
     fn get_rom(&self) {}
@@ -191,34 +257,13 @@ fn main() -> ! {
 
     let mut rom_getter = RomGetter::new(rp_serial, socket);
 
-    //let mut length_read = false;
-    //let mut buffer = [0u8; 512];
-    //let mut length: usize = 0;
-    //loop {
-    //    socket.work();
-    //    if !length_read {
-    //        match socket.read(&mut buffer[0..1]) {
-    //            Ok(len) => {
-    //                if len > 0 && buffer[0] > 0 {
-    //                    length_read = true;
-    //                    length = buffer[0] as usize;
-    //                    println!("Reading length: {:?}\n\r", length);
-    //                }
-    //            }
-    //            Err(e) => println!("Error reading data from socket: {:?}\n\r", e),
-    //        }
-    //    } else {
-    //        match socket.read(&mut buffer[0..length]) {
-    //            Ok(len) if len > 0 => {
-    //                println!("Read {} bytes\n\r", len);
-    //                println!("Buffer: {:?}\n\r", &buffer[0..length]);
-    //                break;
-    //            }
-    //            Err(e) => println!("Error reading data from socket: {:?}\n\r", e),
-    //            _ => {}
-    //        }
-    //    }
-    //}
+    let rom_list = rom_getter.get_rom_list::<8, 32>();
+    for rom in rom_list {
+        if rom.is_some() {
+            let rom = rom.unwrap();
+            println!("{:?}\n\r", rom);
+        }
+    }
 
     rom_getter.socket.disconnect();
 

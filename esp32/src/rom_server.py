@@ -32,6 +32,7 @@ class RomServer:
             data = conn.recv(4)
             command = command_from_int(data[3])
             rom_id = data[0] << 8 | data[1]
+            print(f"Receiving command: {command} rom_id: {rom_id}")
             match command:
                 case Command.REQUEST_ROM_LIST:
                     command_arg = (command, None)
@@ -44,6 +45,7 @@ class RomServer:
         if not conn is None:
             match command:
                 case Command.REQUEST_ROM_LIST:
+                    print("Requesting rom list")
                     num_roms = len(self.roms).to_bytes(2, "big")
                     conn.sendall(num_roms)
                     for rom in self.roms:
@@ -57,6 +59,7 @@ class RomServer:
                         conn.sendall(bytes(rom[1], "utf-8"))
                         # print(''.join('{:02x} '.format(x) for x in bytes(rom[1], 'utf-8')))
                 case Command.REQUEST_ROM:
+                    print("Requesting rom")
                     rom_file = self.roms[arg][1]
                     with open(self.rom_directory + "/" + rom_file, "rb") as file:
                         rom_bytes = file.read()
@@ -72,6 +75,7 @@ class RomServer:
             sock.listen()
             while True:
                 conn, _ = sock.accept()
+                print(conn)
                 with conn:
                     # wait for command
                     command = self.receive_command(conn)
