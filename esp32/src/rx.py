@@ -46,10 +46,19 @@ def receive_rom_list(host: str, port: int) -> list[tuple[int, str]]:
             roms.append((rom_id, rom_name))
     return roms
 
+def kinda_pretty(rom: bytes) -> None: 
+    row = 0
+    for idx, byte in enumerate(rom[1]):
+        if not idx % 17 == 0:
+            sys.stdout.write(f"{byte:02x} ")
+        else:
+            sys.stdout.write("\n")
+            row += 1
+
 
 if __name__ == "__main__":
     server_host, server_port = sys.argv[1].split(":")
     if sys.argv[2] == "list":
         receive_rom_list(server_host, int(server_port))
     elif sys.argv[2] == "rom":
-        print(receive_rom(server_host, int(server_port), sys.argv[3]))
+        kinda_pretty(receive_rom(server_host, int(server_port), sys.argv[3]))
