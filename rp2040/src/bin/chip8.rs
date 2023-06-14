@@ -5,8 +5,11 @@ use core::cell::RefCell;
 use cortex_m_rt::entry;
 use critical_section::Mutex;
 use defmt_rtt as _;
-use embedded_graphics::{pixelcolor::Rgb565, prelude::*};
-use embedded_hal::timer::{Cancel, CountDown};
+use embedded_graphics::{draw_target::DrawTarget, pixelcolor::Rgb565, prelude::Size, prelude::*};
+use embedded_hal::{
+    serial::Write,
+    timer::{Cancel, CountDown},
+};
 use fugit::ExtU32;
 use fugit::RateExtU32;
 use panic_probe as _;
@@ -15,7 +18,12 @@ use rp2040_hal as hal;
 
 use hal::{
     clocks::{init_clocks_and_plls, Clock},
-    gpio::{dynpin::DynPin, FunctionUart, Pins},
+    gpio::{
+        bank0::{Gpio0, Gpio1},
+        dynpin::DynPin,
+        FunctionUart, Pin, Pins,
+    },
+    pac::UART0,
     pac::{self, interrupt},
     rosc::RingOscillator,
     sio::Sio,
@@ -43,23 +51,21 @@ impl<'a> Rom<'a> {
 /// is more about using the bytes sent
 /// from the esp32
 struct Chip8MockDisplay;
-/// Mock Error
-struct DisplayError;
 
-impl embedded_graphics::geometry::OriginDimensions for Chip8MockDisplay {
+impl OriginDimensions for Chip8MockDisplay {
     fn size(&self) -> Size {
-        todo!()
+        Size::new(100, 100)
     }
 }
 
 impl DrawTarget for Chip8MockDisplay {
+    type Error = core::convert::Infallible;
     type Color = Rgb565;
-    type Error = DisplayError;
-    fn draw_iter<I>(
-        &mut self,
-        _: I,
-    ) -> Result<(), <Self as embedded_graphics::draw_target::DrawTarget>::Error> {
-        todo!()
+    fn draw_iter<I>(&mut self, _: I) -> Result<(), Self::Error>
+    where
+        I: IntoIterator<Item = Pixel<Self::Color>>,
+    {
+        Ok(())
     }
 }
 
@@ -149,7 +155,7 @@ fn main() -> ! {
 
     // Store items in global variables
     critical_section::with(|cs| {
-        ROM_BUFFER.borrow(cs).replace(Some([u8; 1024]));
+        ROM_BUFFER.borrow(cs).replace(Some([0; 1024]));
         ROM_SIZE.borrow(cs).replace(None);
         ROM_LOAD_STATE.borrow(cs).replace(None);
         ESP_SERIAL.borrow(cs).replace(Some(uart));
@@ -166,10 +172,10 @@ fn main() -> ! {
         let _ = nb::block!(countdown.wait());
         countdown.cancel().unwrap();
         critical_section::with(|cs| {
-            let rom_load_state = ROM_LOAD_STATE.borrow(cs);
-            let rom_size = ROM_SIZE.borrow(cs);
+            let rom_load_state = ROM_LOAD_STATE.borrow_ref_mut(cs);
+            let rom_size = ROM_SIZE.borrow_ref_mut(cs);
             if rom_load_state.is_some() {
-                let rom_buffer = ROM_BUFFER.borrow(cs);
+                let rom_buffer = ROM_BUFFER.borrow_ref_mut(cs);
             }
         });
     }
@@ -191,7 +197,7 @@ fn UART0_IRQ() {
             if esp_serial.read_full_blocking(&mut buff).is_ok() {
                 let read = (buff[0] << 8 | buff[1]) as usize;
                 if read > 0 {
-                    *rom_size = Some(read);
+                    *rom_size = read;
                     _ = esp_serial.flush();
                 }
             }
