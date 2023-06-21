@@ -172,10 +172,14 @@ fn main() -> ! {
         let _ = nb::block!(countdown.wait());
         countdown.cancel().unwrap();
         critical_section::with(|cs| {
-            let rom_load_state = ROM_LOAD_STATE.borrow_ref_mut(cs);
-            let rom_size = ROM_SIZE.borrow_ref_mut(cs);
+            let mut rom_load_state = ROM_LOAD_STATE.borrow_ref_mut(cs);
+            let mut rom_size = ROM_SIZE.borrow_ref_mut(cs);
+            let rom_size = rom_size.as_mut().unwrap();
             if rom_load_state.is_some() {
-                let rom_buffer = ROM_BUFFER.borrow_ref_mut(cs);
+                let mut rom_buffer = ROM_BUFFER.borrow_ref_mut(cs);
+                let rom_buffer = rom_buffer.as_mut().unwrap();
+                chip8.load_program(&rom_buffer[0..*rom_size]);
+                *rom_load_state = None;
             }
         });
     }
@@ -200,6 +204,10 @@ fn UART0_IRQ() {
                     *rom_size = read;
                     _ = esp_serial.flush();
                 }
+            }
+            if esp_serial.read_full_blocking(&mut rom_buffer[0..*rom_size]).is_ok() {
+                *rom_load_state = ();
+                _ = esp_serial.flush();
             }
         }
     });
